@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Vente App - Web</title>
+  <script src="https://unpkg.com/@supabase/supabase-js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f9f9f9; }
+    .box { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    input, select, button { width: 100%; padding: 10px; margin: 10px 0; }
+    button { background: #28a745; color: white; border: none; cursor: pointer; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+<div class="box">
+  <h2>Inscription</h2>
+  <input type="text" id="nomInscription" placeholder="Nom complet" />
+  <input type="email" id="emailInscription" placeholder="Email" />
+  <input type="password" id="passwordInscription" placeholder="Mot de passe" />
+  <select id="roleInscription">
+    <option value="">Choisir un rôle</option>
+    <option value="vendeur">Vendeur</option>
+    <option value="livreur">Livreur</option>
+  </select>
+  <button onclick="signup()">S'inscrire</button>
+</div>
+
+<div class="box">
+  <h2>Connexion</h2>
+  <input type="email" id="emailLogin" placeholder="Email" />
+  <input type="password" id="passwordLogin" placeholder="Mot de passe" />
+  <button onclick="login()">Se connecter</button>
+</div>
+
+<script>
+  const supabase = supabase.createClient("https://fejpfgvsilfckyztlwda.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZlanBmZ3ZzaWxmY2t5enRsd2RhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3MDA5MDIsImV4cCI6MjA2NjI3NjkwMn0.CYDJXAKgcG_UOy7L3fNRbkrTqWzWuJQn0HrDNYo2Ps4");
+
+  async function signup() {
+    const nom = document.getElementById("nomInscription").value;
+    const email = document.getElementById("emailInscription").value;
+    const password = document.getElementById("passwordInscription").value;
+    const role = document.getElementById("roleInscription").value;
+
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) return alert("Erreur inscription: " + error.message);
+
+    const user = data.user;
+    await supabase.from("utilisateurs").insert([{
+      id: user.id,
+      nom,
+      role
+    }]);
+
+    alert("Inscription réussie !");
+  }
+
+  async function login() {
+    const email = document.getElementById("emailLogin").value;
+    const password = document.getElementById("passwordLogin").value;
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email, password
+    });
+    if (error) return alert("Erreur connexion: " + error.message);
+
+    alert("Connecté !");
+  }
+</script>
+
+</body>
+</html>
