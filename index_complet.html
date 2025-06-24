@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>App Vente Complète</title>
+  <script src="https://unpkg.com/@supabase/supabase-js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f4f4f4; }
+    .box { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+    input, select, button { width: 100%; padding: 10px; margin: 10px 0; }
+    button { background: #007bff; color: white; border: none; cursor: pointer; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+<div class="box" id="authBox">
+  <h2>Inscription</h2>
+  <input type="text" id="nomInscription" placeholder="Nom complet" />
+  <input type="email" id="emailInscription" placeholder="Email" />
+  <input type="password" id="passwordInscription" placeholder="Mot de passe" />
+  <select id="roleInscription">
+    <option value="">Choisir un rôle</option>
+    <option value="vendeur">Vendeur</option>
+    <option value="livreur">Livreur</option>
+    <option value="admin">Admin</option>
+  </select>
+  <button onclick="signup()">S'inscrire</button>
+
+  <h2>Connexion</h2>
+  <input type="email" id="emailLogin" placeholder="Email" />
+  <input type="password" id="passwordLogin" placeholder="Mot de passe" />
+  <button onclick="login()">Se connecter</button>
+</div>
+
+<!-- Vendeur -->
+<div class="box hidden" id="vendeurSection">
+  <h2>Interface Vendeur</h2>
+  <input type="text" id="clientNom" placeholder="Nom du client" />
+  <input type="number" id="latitude" placeholder="Latitude du client" />
+  <input type="number" id="longitude" placeholder="Longitude du client" />
+  <input type="text" id="produit" placeholder="Produit" />
+  <input type="text" id="couleur" placeholder="Couleur" />
+  <input type="number" id="quantite" placeholder="Quantité" />
+  <input type="number" id="prix" placeholder="Prix unitaire" />
+  <button onclick="creerFacture()">Créer Facture</button>
+</div>
+
+<!-- Livreur -->
+<div class="box hidden" id="livreurSection">
+  <h2>Interface Livreur</h2>
+  <button onclick="chargerFactures()">Charger mes factures</button>
+  <div id="facturesLivreur"></div>
+</div>
+
+<!-- Admin -->
+<div class="box hidden" id="adminSection">
+  <h2>Interface Admin</h2>
+  <button onclick="chargerToutesFactures()">Voir toutes les factures</button>
+  <div id="facturesAdmin"></div>
+</div>
+
+<script>
+  const supabase = supabase.createClient(
+    "https://fejpfgvsilfckyztlwda.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZlanBmZ3ZzaWxmY2t5enRsd2RhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3MDA5MDIsImV4cCI6MjA2NjI3NjkwMn0.CYDJXAKgcG_UOy7L3fNRbkrTqWzWuJQn0HrDNYo2Ps4"
+  );
+
+  async function signup() {
+    const nom = document.getElementById("nomInscription").value;
+    const email = document.getElementById("emailInscription").value;
+    const password = document.getElementById("passwordInscription").value;
+    const role = document.getElementById("roleInscription").value;
+
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) return alert("Erreur inscription: " + error.message);
+
+    await supabase.from("utilisateurs").insert([{
+      id: data.user.id,
+      nom,
+      role
+    }]);
+
+    alert("Inscription réussie !");
+  }
+
+  async function login() {
+    const email = document.getElementById("emailLogin").value;
+    const password = document.getElementById("passwordLogin").value;
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email, password
+    });
+    if (error) return alert("Erreur connexion: " + error.message);
+
+    const user = data.user;
+    const { data: infos } = await supabase.from("utilisateurs").select("*").eq("id", user.id).single();
+    document.getElementById("authBox").classList.add("hidden");
+
+    if (infos.role === "vendeur") {
+      document.getElementById("vendeurSection").classList.remove("hidden");
+    } else if (infos.role === "livreur") {
+      document.getElementById("livreurSection").classList.remove("hidden");
+    } else if (infos.role === "admin") {
+      document.getElementById("adminSection").classList.remove("hidden");
+    }
+  }
+
+  async function creerFacture() {
+    const clientNom = document.getElementById("clientNom").value;
+    const lat = parseFloat(document.getElementById("latitude").value);
+    const lng = parseFloat(document.getElementById("longitude").value);
+    const produit = document.getElementById("produit").value;
+    const couleur = document.getElementById("couleur").value;
+    const quantite = parseInt(document.getElementById("quantite").value);
+    const prix = parseFloat(document.getElementById("prix").value);
+    const total = prix * quantite;
+
+    const { data: userData } = await supabase.auth.getUser();
+    const user_id = userData.user.id;
+
+    const { data: client } = await supabase.from("clients").insert([{
+      nom: clientNom,
+      latitude: lat,
+      longitude: lng
+    }]).select().single();
+
+    await supabase.from("factures").insert([{
+      client_id: client.id,
+      vendeur_id: user_id,
+      produit_id: null,
+      couleur,
+      quantite,
+      prix_unitaire: prix,
+      total
+    }]);
+
+    alert("Facture créée !");
+  }
+
+  async function chargerFactures() {
+    const { data: userData } = await supabase.auth.getUser();
+    const user_id = userData.user.id;
+
+    const { data: factures } = await supabase
+      .from("factures")
+      .select("*, clients(nom)")
+      .eq("livreur_id", user_id);
+
+    let html = "";
+    factures.forEach(f => {
+      html += `<div><strong>${f.clients.nom}</strong> - ${f.total} DA <button onclick="confirmerFacture('${f.id}')">Confirmer</button></div>`;
+    });
+    document.getElementById("facturesLivreur").innerHTML = html;
+  }
+
+  async function confirmerFacture(id) {
+    await supabase.from("factures").update({ status: "confirmée", paye: true, date_confirmation: new Date().toISOString() }).eq("id", id);
+    alert("Facture confirmée");
+    chargerFactures();
+  }
+
+  async function chargerToutesFactures() {
+    const { data: factures } = await supabase
+      .from("factures")
+      .select("*, clients(nom)")
+      .order("date_creation", { ascending: false });
+
+    let html = "";
+    factures.forEach(f => {
+      html += `<div><strong>${f.clients.nom}</strong> - ${f.total} DA - Statut: ${f.status}</div>`;
+    });
+    document.getElementById("facturesAdmin").innerHTML = html;
+  }
+</script>
+
+</body>
+</html>
