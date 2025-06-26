@@ -1,0 +1,226 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>FACTURATION LIVRAISON</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; }
+    h1, h2 { text-align: center; }
+    .section { margin-top: 30px; }
+    label { display: block; margin-top: 10px; }
+    input, select, button { width: 100%; padding: 8px; margin-top: 5px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    #facture, #confirm-message { margin-top: 20px; background: #f9f9f9; padding: 15px; border-radius: 5px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+<h1 style="font-size: 28px; letter-spacing: 2px;">BRILEX COMPANY</h1>
+<h2>Application de Livraison</h2>
+
+<!-- Choix du rôle -->
+<div class="section">
+  <label for="role">Choisissez votre rôle :</label>
+  <select id="role" onchange="changerRole()">
+    <option value="">-- Choisissez --</option>
+    <option value="vendeur">Vendeur</option>
+    <option value="livreur">Livreur</option>
+  </select>
+</div>
+
+<!-- Section vendeur -->
+<div id="vendeur-section" class="section hidden">
+  <h3>Vendeur</h3>
+  <label>Nom du client:</label>
+  <input id="client-name" type="text">
+
+  <label>Localisation du client (URL Google Maps):</label>
+  <input id="client-map" type="text" placeholder="https://maps.google.com/...">
+
+  <label>Produit:</label>
+  <select id="produit"></select>
+
+  <label>Couleur:</label>
+  <select id="couleur"></select>
+
+  <label>Type de vente:</label>
+  <select id="type">
+    <option value="détail">Détail</option>
+    <option value="gros">Gros</option>
+  </select>
+
+  <label>Quantité:</label>
+  <input id="quantite" type="number" value="1" min="1">
+
+  <button onclick="ajouterProduit()">Ajouter à la facture</button>
+
+  <div id="panier"></div>
+
+  <button onclick="enregistrerFacture()">Enregistrer la facture</button>
+</div>
+
+<!-- Section livreur -->
+<div id="livreur-section" class="section hidden">
+  <h3>Livreur</h3>
+  <label>Choisir un client:</label>
+  <select id="client-select" onchange="afficherFacture()"></select>
+
+  <div id="facture" class="hidden"></div>
+  <button id="btn-confirmer" class="hidden" onclick="confirmerLivraison()">Confirmer la livraison</button>
+  <div id="confirm-message" class="hidden">✅ Livraison confirmée !</div>
+</div>
+
+<script>
+const produits = [
+  { nom: "Chaussures Sport", prixGros: 2000, prixDetail: 2500, couleurs: ["Rouge", "Bleu", "Noir"] },
+  { nom: "T-shirt Coton", prixGros: 800, prixDetail: 1000, couleurs: ["Blanc", "Noir", "Gris"] },
+  { nom: "Pantalon Jeans", prixGros: 1800, prixDetail: 2200, couleurs: ["Bleu", "Noir", "Gris"] },
+  { nom: "Montre Digital", prixGros: 1500, prixDetail: 2000, couleurs: ["Noir", "Argent", "Or"] },
+  { nom: "Casquette", prixGros: 500, prixDetail: 700, couleurs: ["Rouge", "Noir", "Blanc"] },
+  { nom: "Sac à dos", prixGros: 1200, prixDetail: 1500, couleurs: ["Bleu", "Noir", "Gris"] },
+  { nom: "Lunettes Soleil", prixGros: 1000, prixDetail: 1300, couleurs: ["Noir", "Or", "Argent"] },
+  { nom: "Sweat-shirt", prixGros: 1600, prixDetail: 2000, couleurs: ["Gris", "Bleu", "Noir"] },
+  { nom: "Short Sport", prixGros: 700, prixDetail: 900, couleurs: ["Rouge", "Bleu", "Noir"] },
+  { nom: "Gants Hiver", prixGros: 400, prixDetail: 600, couleurs: ["Noir", "Gris", "Blanc"] },
+];
+
+let panier = [];
+
+function changerRole() {
+  document.getElementById('vendeur-section').classList.add('hidden');
+  document.getElementById('livreur-section').classList.add('hidden');
+  const role = document.getElementById('role').value;
+  if (role === 'vendeur') {
+    initialiserProduits();
+    document.getElementById('vendeur-section').classList.remove('hidden');
+  } else if (role === 'livreur') {
+    chargerClients();
+    document.getElementById('livreur-section').classList.remove('hidden');
+  }
+}
+
+function initialiserProduits() {
+  const selectProduit = document.getElementById('produit');
+  selectProduit.innerHTML = "";
+  produits.forEach((p, i) => {
+    const option = document.createElement("option");
+    option.value = i;
+    option.textContent = p.nom;
+    selectProduit.appendChild(option);
+  });
+  mettreAJourCouleurs();
+  selectProduit.onchange = mettreAJourCouleurs;
+}
+
+function mettreAJourCouleurs() {
+  const id = document.getElementById('produit').value;
+  const couleurs = produits[id].couleurs;
+  const select = document.getElementById('couleur');
+  select.innerHTML = "";
+  couleurs.forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c;
+    opt.textContent = c;
+    select.appendChild(opt);
+  });
+}
+
+function ajouterProduit() {
+  const id = document.getElementById('produit').value;
+  const produit = produits[id];
+  const couleur = document.getElementById('couleur').value;
+  const type = document.getElementById('type').value;
+  const quantite = parseInt(document.getElementById('quantite').value);
+  const prixUnitaire = type === "gros" ? produit.prixGros : produit.prixDetail;
+
+  panier.push({
+    nom: produit.nom,
+    couleur,
+    quantite,
+    prixUnitaire,
+    total: prixUnitaire * quantite
+  });
+
+  afficherPanier();
+}
+
+function afficherPanier() {
+  const div = document.getElementById('panier');
+  let html = "<h4>Facture en cours :</h4><table><tr><th>Produit</th><th>Couleur</th><th>Qté</th><th>Prix U</th><th>Total</th></tr>";
+  let total = 0;
+  panier.forEach(p => {
+    html += `<tr><td>${p.nom}</td><td>${p.couleur}</td><td>${p.quantite}</td><td>${p.prixUnitaire}</td><td>${p.total}</td></tr>`;
+    total += p.total;
+  });
+  html += `<tr><th colspan="4">Total</th><th>${total} DA</th></tr></table>`;
+  div.innerHTML = html;
+}
+
+function enregistrerFacture() {
+  const nom = document.getElementById('client-name').value;
+  const map = document.getElementById('client-map').value;
+  if (!nom || !map || panier.length === 0) {
+    alert("Veuillez remplir tous les champs et ajouter au moins un produit.");
+    return;
+  }
+  const data = {
+    nom,
+    map,
+    panier,
+    livré: false
+  };
+  localStorage.setItem("client_" + nom, JSON.stringify(data));
+  alert("✅ Facture enregistrée !");
+  document.getElementById('client-name').value = '';
+  document.getElementById('client-map').value = '';
+  panier = [];
+  afficherPanier();
+}
+
+function chargerClients() {
+  const select = document.getElementById('client-select');
+  select.innerHTML = '<option value="">-- Choisir --</option>';
+  for (let key in localStorage) {
+    if (key.startsWith("client_")) {
+      const client = JSON.parse(localStorage.getItem(key));
+      if (!client.livré) {
+        select.innerHTML += `<option value="${key}">${client.nom}</option>`;
+      }
+    }
+  }
+}
+
+function afficherFacture() {
+  const key = document.getElementById('client-select').value;
+  if (!key) return;
+  const client = JSON.parse(localStorage.getItem(key));
+  let html = `<h4>Facture Client: ${client.nom}</h4><a href="${client.map}" target="_blank">📍 Voir la localisation</a>`;
+  html += "<table><tr><th>Produit</th><th>Couleur</th><th>Qté</th><th>Prix U</th><th>Total</th></tr>";
+  let total = 0;
+  client.panier.forEach(p => {
+    html += `<tr><td>${p.nom}</td><td>${p.couleur}</td><td>${p.quantite}</td><td>${p.prixUnitaire}</td><td>${p.total}</td></tr>`;
+    total += p.total;
+  });
+  html += `<tr><th colspan="4">Total</th><th>${total} DA</th></tr></table>`;
+  document.getElementById('facture').innerHTML = html;
+  document.getElementById('facture').classList.remove('hidden');
+  document.getElementById('btn-confirmer').classList.remove('hidden');
+  localStorage.setItem("currentInvoice", key);
+}
+
+function confirmerLivraison() {
+  const key = localStorage.getItem("currentInvoice");
+  const client = JSON.parse(localStorage.getItem(key));
+  client.livré = true;
+  localStorage.setItem(key, JSON.stringify(client));
+  alert("✅ Livraison confirmée !");
+  document.getElementById('facture').classList.add('hidden');
+  document.getElementById('btn-confirmer').classList.add('hidden');
+}
+</script>
+
+</body>
+</html>
